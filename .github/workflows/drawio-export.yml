@@ -1,0 +1,68 @@
+name: Generate Draw.io Diagrams
+
+on:
+  push:
+    branches:
+      - tasks
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Install Draw.io Desktop
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgbm1 libasound2t64
+          wget https://github.com/jgraph/drawio-desktop/releases/download/v26.0.4/drawio-amd64-26.0.4.deb
+          sudo dpkg -i drawio-amd64-26.0.4.deb || sudo apt-get install -f -y
+
+      - name: Export Draw.io files to PNG
+        run: |
+          echo "Draw.io files found:"
+          find . -name "*.drawio" -type f
+          for file in $(find . -name "*.drawio" -type f); do
+            output="${file%.drawio}.png"
+            echo "Converting $file to $output"
+            xvfb-run -a drawio --no-sandbox --export --format png --output "$output" "$file"
+          done
+
+      - name: Verify generated images
+        run: |
+          echo "All PNG files:"
+          find . -name "*.png" -type f
+
+      - name: Commit generated images
+        run: |
+          git config --local user.email "asachiyigor@gmail.com"
+          git config --local user.name "Igor"
+          echo "Git status before add:"
+          git status
+          git add . || true
+          echo "Git status after add:"
+          git status
+          if ! git diff --quiet || ! git diff --staged --quiet; then
+            git commit -m "chore: Auto-generate Draw.io diagrams"
+          else
+            echo "No changes to commit"
+          fi
+
+      - name: Push changes
+        if: success()
+        run: |
+          git push || echo "Nothing to push"

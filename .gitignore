@@ -1,1 +1,6 @@
 venv
+# Keep PNG images generated from draw.io
+!*.png
+# IDE
+.idea/
+.vscode/
